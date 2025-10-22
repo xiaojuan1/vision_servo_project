@@ -19,7 +19,7 @@ def detect_aruco(device="/dev/video6", marker_length=0.03, show=True):
     # === 打开相机 ===
     cap = cv2.VideoCapture(device)
     if not cap.isOpened():
-        raise RuntimeError("❌ 无法打开相机，请检查设备号或权限")
+        raise RuntimeError(" 无法打开相机，请检查设备号或权限")
 
     dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
     parameters = aruco.DetectorParameters()
@@ -30,7 +30,7 @@ def detect_aruco(device="/dev/video6", marker_length=0.03, show=True):
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("⚠️ 相机帧获取失败")
+            print("相机帧获取失败")
             continue
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -55,13 +55,13 @@ def detect_aruco(device="/dev/video6", marker_length=0.03, show=True):
         elif key == 27:  # ESC 退出
             cap.release()
             cv2.destroyAllWindows()
-            raise RuntimeError("🚪 手动退出采集。")
+            raise RuntimeError("手动退出采集。")
 
     cap.release()
     cv2.destroyAllWindows()
 
     if ids is None:
-        raise RuntimeError("❌ 当前帧未检测到 ArUco，请重试。")
+        raise RuntimeError(" 当前帧未检测到 ArUco，请重试。")
     return rvecs[0], tvecs[0]
 
 
@@ -86,7 +86,7 @@ for i in range(10):
         t_target2cam.append(t_CG)
         print(f"✅ 第 {i+1} 组数据保存完成！")
     except Exception as e:
-        print(f"❌ 第 {i+1} 组数据失败：{e}")
+        print(f"第 {i+1} 组数据失败：{e}")
         continue
 
 # === 关闭所有窗口 ===
