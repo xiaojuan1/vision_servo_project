@@ -5,6 +5,8 @@ import yaml
 from scipy.spatial.transform import Rotation as R
 from rtde_receive import RTDEReceiveInterface
 from rtde_control import RTDEControlInterface
+from scipy.spatial.transform import Slerp
+import time
 
 
 # ======================================================
@@ -28,7 +30,7 @@ K, dist = data["K"], data["dist"]
 print("✅ 已加载相机标定参数")
 
 T_E_C = load_yaml_T("T_EC.yaml")     # {}^{E}T_C
-T_Cd_G = load_npy_T("T_Cd*G.npy")    # {}^{C_d}T_G
+T_Cd_G = load_npy_T("T_C*G.npy")    # {}^{C_d}T_G
 T_Ed_Cd = T_E_C.copy()               # {}^{E_d}T_{C_d}
 print("✅ 已加载 T_E_C, T_Cd_G, T_Ed_Cd")
 
@@ -77,13 +79,18 @@ def interpolate_T(T, Kp):
     """对误差矩阵进行平移+旋转插值"""
     R_full = R.from_matrix(T[:3, :3])
     t_full = T[:3, 3]
+
+    # 平移插值
     t_interp = Kp * t_full
 
-    q_full = R_full.as_quat()
-    q_id = np.array([0, 0, 0, 1])
-    r_interp = R.slerp(0, 1, [R.from_quat(q_id), R.from_quat(q_full)])([Kp])[0]
-    R_interp = r_interp.as_matrix()
+    # 旋转插值（使用 Slerp 类）
+    q_id = R.from_quat([0, 0, 0, 1])  # 单位旋转
+    key_times = [0, 1]
+    key_rots = R.from_quat([[0, 0, 0, 1], R_full.as_quat()])
+    slerp = Slerp(key_times, key_rots)
+    R_interp = slerp([Kp])[0].as_matrix()
 
+    # 构造结果矩阵
     T_interp = np.eye(4)
     T_interp[:3, :3] = R_interp
     T_interp[:3, 3] = t_interp
@@ -93,8 +100,11 @@ def interpolate_T(T, Kp):
 # ======================================================
 # 🔁 6️⃣ 主循环：检测 ArUco + 计算 + 控制
 # ======================================================
-Kp = 0.3  # 插值比例（步长控制）
+Kp = 0.05  # 插值比例（步长控制）
 print("🚀 开始实时视觉伺服控制... 按 Q 退出")
+
+T_C_G_prev = None
+alpha = 0.15  # 滤波系数（越小越平滑）
 
 while True:
     ret, frame = cap.read()
@@ -115,6 +125,22 @@ while True:
             T_C_G[:3, :3] = R_C_G
             T_C_G[:3, 3] = tvec.flatten()
 
+            # === 滤波: 平滑当前检测结果 ===
+            if T_C_G_prev is not None:
+                # 平移部分滑动平均
+                T_C_G[:3, 3] = alpha * T_C_G[:3, 3] + (1 - alpha) * T_C_G_prev[:3, 3]
+
+                # 旋转部分用四元数球面插值
+                R_prev = R.from_matrix(T_C_G_prev[:3, :3])
+                R_curr = R.from_matrix(T_C_G[:3, :3])
+                slerp = Slerp([0, 1], R.from_matrix([R_prev.as_matrix(), R_curr.as_matrix()]))
+                R_interp = slerp([alpha])[0].as_matrix()
+                T_C_G[:3, :3] = R_interp
+
+            # 保存当前矩阵用于下一帧
+            T_C_G_prev = T_C_G.copy()
+
+
             # === 2️⃣ 当前误差矩阵 {}^{E}T_{E_d} ===
             T_E_Ed = (T_E_C @ T_C_G) @ np.linalg.inv(T_Ed_Cd @ T_Cd_G)
             T_E_Ed_interp = interpolate_T(T_E_Ed, Kp)
@@ -134,7 +160,11 @@ while True:
             print("目标末端姿态 [x,y,z,Rx,Ry,Rz] =\n", np.round(pose_target, 4))
 
             # === 6️⃣ 控制 UR5（建议初次运行注释掉） ===
-            # rtde_c.moveL(pose_target, 0.1, 0.1)
+            rtde_c.servoL(pose_target, 0.05, 0.02, 0.008, 0.15, 200)
+
+            # 让下一次检测稍微等一下（否则太频繁）
+            time.sleep(1/30)
+            
 
             # === 7️⃣ 可视化坐标轴 ===
             if SHOW_CAMERA:
@@ -152,5 +182,5 @@ while True:
 # ======================================================
 cap.release()
 cv2.destroyAllWindows()
-rtde_c.stopScript()
+rtde_c.servoStop()
 print("✅ 程序已退出并关闭连接。")
