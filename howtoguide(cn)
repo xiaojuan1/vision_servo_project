@@ -1,0 +1,27 @@
+## 本项目使用UR5和realsense D415进行基于位置的视觉伺服（PBVS）
+
+备注：{O}机器人base,{C}相机当前坐标系,{C*/Cd}相机期望坐标系，{G}目标坐标系
+
+项目准备： 
+a:机械臂网线接口连接电脑，realsense摄像头通过usb连接电脑（camera_test.py测试摄像头是否正常）
+b:打印出aruco_id0.png，尺寸大小3cm*3cm(本项目是这么设定的)
+c:打印charuco_board_A4.pdf，请按照原尺寸打印不要缩放
+          
+
+STEP:
+1:运行cali_d415.py，保存相机的内参矩阵和畸变矩阵
+2:运行handeye_collect.py，进行手眼标定，生成handeye_data.npz
+3:运行compute_TEC.py，计算矩阵T_E_C.这里没自动生成矩阵文件，需要从终端复制然后运行TECtoyaml.py保存为yaml
+4:将相机摆到自己期望的相对于aruco标志的相对位置(依据个人经验最好保持在图像最中间)，运行TC*G.py，这里会创建一个文件夹aruco_poses/，里面有.npy和.txt很多，只需要复制出来一对然后给改为T_C*G.npy/.txt.
+5:然后直接运行main.py
+
+
+
+
+
+注意：
+1：这里虽然我的main.py调整的比较慢，但是当你想进行marker跟随的时候切忌不要突然向后移动图像，否则机械臂可能会超限或者损坏
+2：慢速移动marker
+
+
+pip install ur-rtde

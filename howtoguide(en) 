@@ -1,0 +1,30 @@
+This project uses a UR5 robot and a Realsense D415 camera for Position-Based Visual Servoing (PBVS)
+
+Notes: {O} – robot base, {C} – current camera coordinate frame, {C*/Cd} – desired camera coordinate frame, {G} – target coordinate frame
+
+Project Setup:
+
+a. Connect the robot’s Ethernet interface to the computer, and connect the Realsense camera to the computer via USB (use camera_test.py to test if the camera works properly).
+b. Print aruco_id0.png with a size of 3 cm × 3 cm (this project is configured for that size).
+c. Print charuco_board_A4.pdf at its original size (do not scale).
+
+Steps:
+
+1: Run cali_d415.py to save the camera’s intrinsic matrix and distortion coefficients.
+
+2: Run handeye_collect.py to perform hand–eye calibration and generate handeye_data.npz.
+
+3: Run compute_TEC.py to compute the matrix T_E_C.
+(This script doesn’t automatically save the matrix file; you need to copy the output from the terminal and then run TECtoyaml.py to save it as a YAML file.)
+
+4:Move the camera to your desired relative position with respect to the ArUco marker (ideally keep it centered in the image).
+Then run TC*G.py.
+This will create a folder aruco_poses/ containing many .npy and .txt files — just copy one pair and rename them to T_C*G.npy / T_C*G.txt.
+
+5: Finally, run main.py.
+
+Notes:
+
+Although main.py runs relatively slowly, do not move the marker backward suddenly when performing marker tracking, as this may cause the robot to exceed its limits or get damaged.
+
+Move the marker slowly.
